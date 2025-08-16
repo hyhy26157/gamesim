@@ -1,0 +1,12 @@
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+select = ["E", "F", "B", "I","PL"]
+ignore = ["E501"]  # remove to enforce line length
+
+[tool.ruff.lint.isort]
+known-first-party = ["gamesim"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
