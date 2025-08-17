@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import random
+import hashlib
 from typing import Dict, List
 
 from src.sim.models import Agent
@@ -41,15 +42,13 @@ class World:
         self.agents: List[Agent] = []
         # Track skulls
         self.skulls = []
-        for _ in range(int(cfg["NUM_AGENTS"])):
-            while True:
-                x = self.rng.randrange(self.w)
-                y = self.rng.randrange(self.h)
-                # Allow stacking for MVP; or keep unique positions
-                a = Agent.new(x,y)
-                a.hunger = self.cfg["HUNGER_MAX"]
-                self.agents.append(a)
-                break
+        # Unique spawn positions (no stacking)
+        cells = [(x, y) for y in range(self.h) for x in range(self.w)]
+        k = min(int(cfg["NUM_AGENTS"]), len(cells))
+        for (x, y) in self.rng.sample(cells, k=k):
+            a = Agent.new(x, y)
+            a.hunger = self.cfg["HUNGER_MAX"]
+            self.agents.append(a)
 
     def neighbors8(self, x:int, y:int):
         """
@@ -87,15 +86,15 @@ class World:
         # One simulation tick
         self.tick += 1
         # Deterministic RNG per tick
-        trng = random.Random((hash((self.cfg.get("SEED",42), self.tick)) & 0xFFFFFFFF))
+        seed_bytes = f"{self.cfg.get('SEED',42)}:{self.tick}".encode()
+        seed_int = int.from_bytes(hashlib.blake2b(seed_bytes, digest_size=8).digest(), 'big')
+        trng = random.Random(seed_int)
         # Agents act in ID order for determinism
         for agent in sorted(self.agents, key=lambda a: a.id):
             if not agent.alive:
-                continue  # dead agents do nothing
+                continue
             # Increase hunger
             agent.hunger = max(0.0, agent.hunger - self.cfg["HUNGER_INCREASE_PER_TICK"])
-
-            # death check
             if agent.hunger <= 0.0:
                 agent.alive = False
                 self.skulls.append({"x": agent.x, "y": agent.y, "ttl": int(self.cfg["SKULL_FADE_TICKS"])})
@@ -138,6 +137,8 @@ class World:
                     self.cfg["WANDER_IDLE_CHANCE"] * (1.0 - deficit) +
                     self.cfg["WANDER_IDLE_CHANCE_AT_MAX_HUNGER"] * deficit
                 )
+                # clamp to [0,1]
+                idle_prob = max(0.0, min(1.0, idle_prob))
                 if trng.random() >= idle_prob:
                     # Prefer moving into least explored neighbor when not starving
                     # When starving, exploration pressure increases anyway since idle_prob is low

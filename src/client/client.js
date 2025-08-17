@@ -35,7 +35,7 @@ function draw(state) {
   }
 
   // grid lines (light)
-  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.strokeStyle = "rgba(255, 102, 0, 0.06)";
   ctx.lineWidth = 1;
   for (let x=0; x<=gridW; x++) {
     ctx.beginPath();
